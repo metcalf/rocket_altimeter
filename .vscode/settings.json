@@ -1,0 +1,7 @@
+{
+  "editor.formatOnSave": true,
+  "files.associations": {
+    "bme280.h": "c",
+    "bme280_defs.h": "c"
+  }
+}

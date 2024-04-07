@@ -1,1 +1,10 @@
 TODO: Use submodule for BME280 driver
+
+128 bytes EEPROM
+Divide each bytes into 2 [-8, 8] ranges representing delta tens of feet altitude
+In case of overflow, sample rolls into the next byte
+Poll every half second. When there is a > 10 foot delta between samples, save the previous sample and this one.
+Continue sampling every half second for 10s (~12 bytes assuming a bit of overflow).
+Switch to sampling every 3 seconds until EEPROM is full (5 minutes)
+
+Blink an LED very briefly every N seconds until delta is large enough to activate the tracking system

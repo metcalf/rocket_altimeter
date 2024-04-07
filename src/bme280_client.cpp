@@ -9,11 +9,11 @@
 #include <util/delay.h>
 
 #define F_SCL 100000 // 100khz
-#define MIN_PRESSURE_PA 87000
 
-uint16_t bme_period_ms_;
+uint32_t bme_meas_delay_us_;
 static uint8_t bme_dev_addr_ = BME280_I2C_ADDR_PRIM;
 struct bme280_dev bme_dev_;
+
 
 void bme280_init() {
     int8_t rslt;
@@ -31,41 +31,36 @@ void bme280_init() {
 
     struct bme280_settings settings = {
         .osr_p = BME280_OVERSAMPLING_1X,
-        .osr_t = BME280_OVERSAMPLING_1X,
-        .osr_h = BME280_OVERSAMPLING_1X,
-        .filter = BME280_FILTER_COEFF_2,
-        .standby_time = BME280_STANDBY_TIME_1000_MS,
+        .osr_t = BME280_NO_OVERSAMPLING,
+        .osr_h = BME280_NO_OVERSAMPLING,
+        .filter = BME280_FILTER_COEFF_OFF,
+        .standby_time = 0, // Unused
     };
     rslt = bme280_set_sensor_settings(BME280_SEL_ALL_SETTINGS, &settings, &bme_dev_);
     assert(rslt == BME280_OK);
 
-    rslt = bme280_set_sensor_mode(BME280_POWERMODE_NORMAL, &bme_dev_);
+    rslt = bme280_cal_meas_delay(&bme_meas_delay_us_, &settings);
     assert(rslt == BME280_OK);
 };
 
-int8_t bme280_get_latest(int16_t *temp, uint16_t *hum, uint16_t *pres) {
-    struct bme280_data data {};
-    int8_t rslt = bme280_get_sensor_data(BME280_ALL, &data, &bme_dev_);
-    if (rslt != 0) {
+int8_t bme280_measure(uint32_t *pres) {
+    // Start a measurement
+    int8_t rslt = bme280_set_sensor_mode(BME280_POWERMODE_FORCED, &bme_dev_);
+    if(rslt != BME280_OK) {
         return rslt;
     }
 
-    *temp = (int16_t)data.temperature; // 0.01C
-    // Convert from Q22.10 to Q23.9 to fit in uint_16 (truncating to Q7.9)
-    // The humidity range is 0-100% so we only need 7 bits left of the decimal
-    *hum = (uint16_t)(data.humidity >> 1);
-    // Convert from Pa to (Pa - 87000) to fit into atmospheric range
-    // Pa pressure range = 87,000 - 108,500 = 21,500
-    if (data.pressure < MIN_PRESSURE_PA) {
-        *pres = 0;
-    } else {
-        data.pressure -= MIN_PRESSURE_PA;
-        if (data.pressure > UINT16_MAX) {
-            *pres = UINT16_MAX;
-        } else {
-            *pres = data.pressure;
-        }
+    // Sleep until measurement is ready
+    _delay_us(bme_meas_delay_us_);
+
+    // Measure
+    struct bme280_data data {};
+    rslt = bme280_get_sensor_data(BME280_PRESS, &data, &bme_dev_);
+    if (rslt != BME280_OK) {
+        return rslt;
     }
+
+    *pres = data.pressure;
 
     return 0;
 }
