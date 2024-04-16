@@ -1,5 +1,3 @@
-TODO: Use submodule for BME280 driver
-
 128 bytes EEPROM
 Divide each bytes into 2 [-8, 8] ranges representing delta tens of feet altitude
 In case of overflow, sample rolls into the next byte
@@ -8,3 +6,11 @@ Continue sampling every half second for 10s (~12 bytes assuming a bit of overflo
 Switch to sampling every 3 seconds until EEPROM is full (5 minutes)
 
 Blink an LED very briefly every N seconds until delta is large enough to activate the tracking system
+
+```
+~/.platformio/packages/tool-avrdude/avrdude \
+  -C /Users/andrew/.platformio/packages/tool-avrdude/avrdude.conf \
+  -p attiny826 -P /dev/cu.usbserial* -b 115200 -c serialupdi \
+  -U eeprom:r:-:r -x rtsdtr=high > /tmp/eeprom_data
+cat /tmp/eeprom_data | pipenv run python alt_parser.py
+```

@@ -1,64 +1,49 @@
 #include "recorder.h"
 
+#include "avr/eeprom.h"
 #include "avr/io.h"
 
-#define EEPROM_PAGES EEPROM_SIZE / EEPROM_SIZE
+// We expect to go up faster than down so allocate more bits to
+// the positive side of the range
+#define MAX_POSITIVE_VALUE 10
+#define MIN_NEGATIVE_VALUE (MAX_POSITIVE_VALUE - 15)
 
-static uint8_t curr_page_ = 0, curr_byte_ = 0;
+static uint8_t *curr_addr_ = 0, curr_val_ = 0;
 static bool partial_byte_ = false;
-static char page_val_[EEPROM_PAGE_SIZE];
-
-bool flush_page() {
-    // Wait for EEPROM to be ready
-    while (NVMCTRL.STATUS & NVMCTRL_EEBUSY_bm)
-        ;
-
-    // TODO: confirm this seems right
-    for (int i = 0; i < EEPROM_PAGE_SIZE; i++) {
-        *(((char *)EEPROM_START) + EEPROM_PAGE_SIZE * curr_page_ + i) = page_val_[i];
-    }
-    CPU_CCP = CCP_SPM_gc;
-    NVMCTRL.CTRLA |= NVMCTRL_CMD_PAGEWRITE_gc;
-
-    curr_page_++;
-    curr_byte_ = 0;
-    return curr_page_ == EEPROM_PAGES;
-}
 
 bool record_one(int8_t val) {
-    char byte = (val + 8) & 0x0f;
+    // Shift the range
+    char byte = (val - MIN_NEGATIVE_VALUE) & 0x0f;
 
-    // Store the low part
     if (!partial_byte_) {
-        page_val_[curr_byte_] = byte;
+        // Store the low bits in memory
+        curr_val_ = byte;
         partial_byte_ = true;
         return true;
     } else {
-        page_val_[curr_byte_] |= (byte << 4);
+        // Flush the full value to EEPROM
+        curr_val_ |= (byte << 4);
         partial_byte_ = false;
-        curr_byte_++;
-        if (curr_byte_ == EEPROM_PAGE_SIZE) {
-            return flush_page();
-        } else {
-            return true;
-        }
+        eeprom_write_byte(curr_addr_, curr_val_);
+        curr_addr_++;
+        return (uint8_t)curr_addr_ < EEPROM_SIZE;
     }
 }
 
 bool recorder_record(int8_t val) {
     if (val > 0) {
-        while (val >= 8) {
-            if (!record_one(8)) {
+        while (val >= MAX_POSITIVE_VALUE) {
+            if (!record_one(MAX_POSITIVE_VALUE)) {
                 return false;
             };
-            val -= 8;
+            val -= MAX_POSITIVE_VALUE;
         }
     } else {
-        while (val <= -7) {
-            if (!record_one(-7)) {
+        while (val <= MIN_NEGATIVE_VALUE) {
+            if (!record_one(MIN_NEGATIVE_VALUE)) {
                 return false;
             };
-            val += 7;
+            val -= MIN_NEGATIVE_VALUE;
         }
     }
     return record_one(val);
