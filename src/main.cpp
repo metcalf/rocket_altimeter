@@ -11,15 +11,15 @@
 // a few percent error assuming we're launching from near sea level, only
 // going ~1000ft and operating around ambient temperature
 #define PA_PER_10FT 35
-#define START_DELTA_THRESHOLD_10FT 1 // Start launch tracking after this size delta
+#define START_DELTA_THRESHOLD_10FT 2 // Start launch tracking after this size delta
 #define FAST_INTERVAL_INVERSE_SECS 2
 #define SLOW_INTERVAL_SECS 3
 
-uint32_t last_pressure_pa_;
+int32_t last_pressure_pa_;
 int8_t last_delta_10ft_;
 bool running_;
 
-uint32_t start_pressure_pa_;
+int32_t start_pressure_pa_;
 int16_t last_altitude_10ft_;
 uint8_t n_records_ = 0;
 
@@ -31,11 +31,11 @@ bool record_delta(int8_t delta_10ft_from_last) {
     return res;
 }
 
-int8_t get_record_delta(uint32_t pressure_pa) {
+int8_t get_record_delta(int32_t pressure_pa) {
     // TODO: check this math or, better, write tests.
     // Calculate all deltas relative to launch pressure so that we don't drift because
     // of repeated rounding to 10ft
-    int16_t delta_10ft_from_launch = ((int32_t)start_pressure_pa_ - pressure_pa) / PA_PER_10FT;
+    int16_t delta_10ft_from_launch = (start_pressure_pa_ - pressure_pa) / PA_PER_10FT;
     return delta_10ft_from_launch - last_altitude_10ft_;
 }
 
@@ -54,9 +54,9 @@ void wait_for_button() {
     // Power down until button press wakes us up, then disable pull-up and interrupt
     // This avoids accidentally overwriting data if the device restarts
     sleep_mode();
+
     cli();
     PORTA.PIN4CTRL = 0;
-    PORTA.INTFLAGS |= PIN4_bm;
 }
 
 int main(void) {
@@ -84,41 +84,39 @@ int main(void) {
         // Enter standby until the timer wakes us
         sleep_mode();
 
-        //if (!running_) {
-        led_on();
-        _delay_ms(10);
-        led_off();
-        _delay_ms(100);
-        //}
+        if (!running_) {
+            led_on();
+        }
 
-        // uint32_t pressure_pa = last_pressure_pa_; // Ignore errors and use last value
-        // bme280_measure(&pressure_pa);
+        int32_t pressure_pa = last_pressure_pa_; // Ignore errors and use last value
+        bme280_measure(&pressure_pa);
 
-        // if (running_) {
-        //     if (!record_delta(get_record_delta(pressure_pa))) {
-        //         led_off();
-        //         // Stop recording until power cycles once we fill EEPROM
-        //         sleep_mode();
-        //     }
-        //     // Switch to 3s increments after 10s
-        //     if (n_records_ == 20) {
-        //         TCA0.SINGLE.PER = F_CLK_PER * SLOW_INTERVAL_SECS / 16;
-        //     }
-        //     led_off();
-        // } else {
-        //     int16_t delta_10ft = ((int32_t)last_pressure_pa_ - pressure_pa) / PA_PER_10FT;
-        //     if (delta_10ft >= START_DELTA_THRESHOLD_10FT) {
-        //         record_delta(get_record_delta(last_pressure_pa_));
-        //         record_delta(get_record_delta(pressure_pa));
-        //         running_ = true;
-        //     } else {
-        //         start_pressure_pa_ = last_pressure_pa_;
-        //         last_pressure_pa_ = pressure_pa;
-        //     }
+        if (running_) {
+            if (!record_delta(get_record_delta(pressure_pa))) {
+                led_off();
+                // Stop recording until power cycles once we fill EEPROM
+                sleep_mode();
+            }
+            // Switch to 3s increments after 10s
+            if (n_records_ == 20) {
+                TCA0.SINGLE.PER = F_CLK_PER * SLOW_INTERVAL_SECS / 16;
+            }
+        } else {
+            int16_t delta_10ft = (last_pressure_pa_ - pressure_pa) / PA_PER_10FT;
+            if (delta_10ft >= START_DELTA_THRESHOLD_10FT) {
+                record_delta(get_record_delta(last_pressure_pa_));
+                record_delta(get_record_delta(pressure_pa));
+                running_ = true;
+            } else {
+                start_pressure_pa_ = last_pressure_pa_;
+                last_pressure_pa_ = pressure_pa;
+            }
 
-        //     led_off();
-        // }
+            led_off();
+        }
     }
 }
 
 ISR(TCA0_OVF_vect) { TCA0.SINGLE.INTFLAGS |= TCA_SINGLE_OVF_bm; }
+
+ISR(PORTA_PORT_vect) {}

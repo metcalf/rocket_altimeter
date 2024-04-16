@@ -14,7 +14,6 @@ uint32_t bme_meas_delay_us_;
 static uint8_t bme_dev_addr_ = BME280_I2C_ADDR_PRIM;
 struct bme280_dev bme_dev_;
 
-
 void bme280_init() {
     int8_t rslt;
 
@@ -43,10 +42,10 @@ void bme280_init() {
     assert(rslt == BME280_OK);
 };
 
-int8_t bme280_measure(uint32_t *pres) {
+int8_t bme280_measure(int32_t *pres) {
     // Start a measurement
     int8_t rslt = bme280_set_sensor_mode(BME280_POWERMODE_FORCED, &bme_dev_);
-    if(rslt != BME280_OK) {
+    if (rslt != BME280_OK) {
         return rslt;
     }
 

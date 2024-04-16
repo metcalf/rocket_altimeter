@@ -4,7 +4,7 @@
 
 void bme280_init();
 
-int8_t bme280_measure(uint32_t *pres);
+int8_t bme280_measure(int32_t *pres);
 
 /***************************************************************************/
 
