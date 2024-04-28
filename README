@@ -11,6 +11,14 @@ Blink an LED very briefly every N seconds until delta is large enough to activat
 ~/.platformio/packages/tool-avrdude/avrdude \
   -C /Users/andrew/.platformio/packages/tool-avrdude/avrdude.conf \
   -p attiny826 -P /dev/cu.usbserial* -b 115200 -c serialupdi \
-  -U eeprom:r:-:r -x rtsdtr=high > /tmp/eeprom_data
-cat /tmp/eeprom_data | pipenv run python alt_parser.py
+  -U eeprom:r:-:h -x rtsdtr=high
+```
+
+```
+export OUTFILENAME=data/20240427-egg-d12-3-payload
+~/.platformio/packages/tool-avrdude/avrdude \
+  -C /Users/andrew/.platformio/packages/tool-avrdude/avrdude.conf \
+  -p attiny826 -P /dev/cu.usbserial* -b 115200 -c serialupdi \
+  -U eeprom:r:-:r -x rtsdtr=high > $OUTFILENAME
+pipenv run python alt_parser.py rocket $OUTFILENAME 60,1000
 ```

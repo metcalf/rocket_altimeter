@@ -14,7 +14,7 @@ uint32_t bme_meas_delay_us_;
 static uint8_t bme_dev_addr_ = BME280_I2C_ADDR_PRIM;
 struct bme280_dev bme_dev_;
 
-void bme280_init() {
+int8_t bme280_init() {
     int8_t rslt;
 
     bme_dev_.intf = BME280_I2C_INTF;
@@ -26,20 +26,24 @@ void bme280_init() {
     TinyI2C.init();
 
     rslt = bme280_init(&bme_dev_);
-    assert(rslt == BME280_OK);
+    if (rslt != BME280_OK) {
+        return rslt;
+    }
 
     struct bme280_settings settings = {
-        .osr_p = BME280_OVERSAMPLING_1X,
-        .osr_t = BME280_NO_OVERSAMPLING,
+        .osr_p = BME280_OVERSAMPLING_8X,
+        .osr_t = BME280_OVERSAMPLING_1X,
         .osr_h = BME280_NO_OVERSAMPLING,
-        .filter = BME280_FILTER_COEFF_OFF,
+        .filter = BME280_FILTER_COEFF_2,
         .standby_time = 0, // Unused
     };
     rslt = bme280_set_sensor_settings(BME280_SEL_ALL_SETTINGS, &settings, &bme_dev_);
-    assert(rslt == BME280_OK);
+    if (rslt != BME280_OK) {
+        return rslt;
+    }
 
     rslt = bme280_cal_meas_delay(&bme_meas_delay_us_, &settings);
-    assert(rslt == BME280_OK);
+    return rslt;
 };
 
 int8_t bme280_measure(int32_t *pres) {

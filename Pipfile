@@ -7,6 +7,8 @@ name = "pypi"
 ipython = "*"
 matplotlib = "*"
 ipdb = "*"
+pyserial = "*"
+click = "*"
 
 [dev-packages]
 

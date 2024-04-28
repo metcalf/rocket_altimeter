@@ -48,3 +48,9 @@ bool recorder_record(int8_t val) {
     }
     return record_one(val);
 }
+
+bool recorder_record_test_byte(int8_t val) {
+    eeprom_write_byte(curr_addr_, val);
+    curr_addr_++;
+    return (uint8_t)curr_addr_ < EEPROM_SIZE;
+}
